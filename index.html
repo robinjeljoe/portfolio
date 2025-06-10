@@ -1,0 +1,185 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <link rel="icon" type="image/png" href="./3 Dude_Monster/Dude_Monster.png" />
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/nipplejs/0.9.0/nipplejs.min.js"></script>
+
+  <title>2D Platformer</title>
+  <style>
+    body, html {
+      margin: 0;
+      overflow: hidden;
+      cursor: url('./assets/cursor.cur'), auto;
+    }
+    canvas {
+      display: block;
+      background: #87CEEB; /* fallback sky color */
+    }
+  </style>
+  <style>
+  #scrollBox {
+    position: absolute;
+    top: 80px; /* adjust as needed */
+    left: 470px;
+    width: 550px;
+    height: 390px;
+    overflow-y: auto;
+    background-color: rgba(255, 255, 255, 0.9);
+    border: 2px solid #000;
+    padding: 10px;
+    font-family: sans-serif;
+    z-index: 10; /* make sure it's above the canvas */
+    display: none;
+    text-align: center;
+  }
+  #scrollBox1{
+    position: absolute;
+    overflow-y: auto;
+    background-color: rgba(255, 255, 255, 0.9);
+    border: 2px solid #000;
+    padding: 10px;
+    font-family: sans-serif;
+    z-index: 9; /* make sure it's above the canvas */
+    display: none;
+    text-align: center;
+  }
+  #scrollBox2 {
+    margin-top: 40vh;
+    overflow-y: auto;
+    background-color: rgba(255, 255, 255, 0.9);
+    border: 2px solid #000;
+    padding: 10px;
+    font-family: sans-serif;
+    z-index: 10; /* make sure it's above the canvas */
+    display: none;
+    text-align: center;
+  }
+</style>
+
+
+
+<script>
+   // If not already declared globally
+
+  document.addEventListener('DOMContentLoaded', () => {
+    const joystick = nipplejs.create({
+      zone: document.getElementById('joystickZone'),
+      mode: 'static',
+      position: { left: '60px', bottom: '60px' },
+      color: 'blue',
+    });
+
+    let currentDirection = null;
+
+    joystick.on('move', (evt, data) => {
+      if (!data.direction) return;
+
+      const dir = data.direction.angle;
+
+      if (dir !== currentDirection) {
+        // Reset previous direction key
+        if (currentDirection) {
+          switch (currentDirection) {
+            case 'left': keys['a'] = false; break;
+            case 'right': keys['d'] = false; break;
+            case 'up': keys['w'] = false; break;
+            case 'down': keys['s'] = false; break;
+          }
+        }
+
+        // Set new direction key
+        switch (dir) {
+          case 'left': keys['a'] = true; break;
+          case 'right': keys['d'] = true; break;
+          case 'up': keys['w'] = true; break;
+          case 'down': keys['s'] = true; break;
+        }
+
+        currentDirection = dir;
+      }
+    });
+
+    joystick.on('end', () => {
+      if (currentDirection) {
+        switch (currentDirection) {
+          case 'left': keys['a'] = false; break;
+          case 'right': keys['d'] = false; break;
+          case 'up': keys['w'] = false; break;
+          case 'down': keys['s'] = false; break;
+        }
+        currentDirection = null;
+      }
+    });
+  });
+</script>
+
+
+</head>
+<body>
+  <canvas id="gameCanvas" width="1920" height="800"></canvas>
+  <div id="joystickZone" style="width: 200px; height: 200px; position: fixed; bottom: 20px; left: 20px; display: none;"></div>
+  <button id="btn" style="display: none; z-index: 13; position: absolute; border-radius: 10px; opacity: 0.6;">Close</button>
+  <div id="scrollBox">
+  <h1>SortEm</h1>
+  <h2> An Advanced Email Summarization and Sorting System Using Transformer Based NLP Techniques  </h2>
+  <h3> 2024 - 2025</h3>
+  <img src="./assets/sortem.jpeg" alt="" style="width: 90%; height: auto;">
+  
+  <h4>In the era of digital communication, email overload has become a significant challenge for professionals and
+students alike. This presents SortEm, an advanced email management system designed to streamline
+email communications through automated summarization and categorization. By leveraging state-of-the-art
+Natural Language Processing (NLP) techniques, including transformer-based models like BART and zero-shot
+learning, SortEm provides concise email summaries and intelligent categorization, enabling users to focus on
+critical communications. The system also incorporates a Text-to-Speech (TTS) module, enhancing accessibility
+for users with visual impairments or those who prefer auditory content.</h4>
+<img src="./assets/sortem (1).jpeg" alt="" style="width: 90%; height: auto;">
+<br>
+<img src="./assets/sortem (2).jpeg" alt="" style="width: 90%; height: auto;">
+<br>
+<img src="./assets/sortem (3).jpeg" alt="" style="width: 90%; height: auto;">
+<br>
+
+  <!-- Add more content -->
+</div>
+<div id="scrollBox1">
+  <h1>QCut</h1>
+  <h2> Skip The Queue, Enjoy The Food </h2>
+  <h3> 2024</h3>
+  <img src="./assets/qcut1.jpg" alt="" style="width: 90%; height: auto;">
+  
+  <h4>Qcut is a restaurant management system that allows users to easily place orders and track their progress. The system is designed to be user-friendly and intuitive, making it easy to navigate and place orders.
+    It solves the problem of queues by allowing users to place orders online and track their progress in real-time.
+  </h4>
+<img src="./assets/qcut2.jpeg" alt="" style="width: 90%; height: auto;">
+<br>
+
+<br>
+
+  <!-- Add more content -->
+</div>
+
+<div id="scrollBox2">
+  <h1>Sorry for the inconvenience</h1>
+<h3>THIS WEBSITE WORKS ONLY IN LANSCAPE MODE</h3>
+</div>
+  <script src="main.js"></script>
+  <script>
+  document.getElementById('joystickZone').addEventListener('click', () => {
+    const elem = document.documentElement; // or your canvas
+    if (elem.requestFullscreen) {
+      elem.requestFullscreen();
+      resizeCanvas();
+    } else if (elem.webkitRequestFullscreen) {
+      elem.webkitRequestFullscreen(); // Safari
+      resizeCanvas();
+    } else if (elem.msRequestFullscreen) {
+      elem.msRequestFullscreen(); // IE11
+      resizeCanvas();
+    }
+
+  });
+</script>
+</body>
+</html>

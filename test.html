@@ -1,0 +1,570 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Multi-World Platformer</title>
+    <style>
+        body {
+            margin: 0;
+            padding: 0;
+            overflow: hidden;
+            background-color: #000;
+            font-family: Arial, sans-serif;
+        }
+        canvas {
+            display: block;
+            image-rendering: pixelated;
+        }
+        #instructions {
+            position: absolute;
+            top: 10px;
+            right: 10px;
+            background: rgba(0,0,0,0.7);
+            color: white;
+            padding: 10px;
+            border-radius: 5px;
+            font-size: 14px;
+            z-index: 10;
+        }
+    </style>
+</head>
+<body>
+    <canvas id="gameCanvas"></canvas>
+    <div id="instructions">
+        <strong>Controls:</strong><br>
+        WASD / Arrow Keys: Move<br>
+        Space: Jump<br>
+        Shift: Run<br>
+        S: Crouch (on teleport platforms)<br>
+        E / Space: Enter Portals
+    </div>
+
+    <script>
+        const canvas = document.getElementById('gameCanvas');
+        const ctx = canvas.getContext('2d');
+        ctx.imageSmoothingEnabled = false;
+
+        let xfactor = 1;
+        let yfactor = 1;
+
+        function resizeCanvas() {
+            canvas.width = window.innerWidth;
+            canvas.height = window.innerHeight;
+            console.log(`Canvas resized to ${canvas.width}x${canvas.height}`);
+            xfactor = 1536 / window.innerWidth;
+            yfactor = 768 / window.innerHeight;
+        }
+
+        // Initial resize
+        resizeCanvas();
+        window.addEventListener('resize', resizeCanvas);
+
+        // Game constants
+        let gravity = 0.2;
+        let groundY = 400;
+        let cameraX = 0;
+        const screenCenterX = 700;
+
+        // Platform textures
+        const platformTextures = {
+            default: new Image(),
+            type1: new Image(),
+            type2: new Image(),
+            portfolio: new Image(),
+            about: new Image(),
+            contact: new Image(),
+            projects: new Image(),
+            invisible: new Image(),
+            portal: new Image(),
+            stone: new Image(),
+            grass: new Image()
+        };
+
+        // Load platform textures with fallbacks
+        platformTextures.default.src = 'https://placehold.co/140x40/8B4513/FFFFFF?text=Platform';
+        platformTextures.type1.src = 'https://placehold.co/140x40/228B22/FFFFFF?text=Grass';
+        platformTextures.type2.src = 'https://placehold.co/140x40/696969/FFFFFF?text=Stone';
+        platformTextures.portfolio.src = 'https://placehold.co/450x140/4169E1/FFFFFF?text=Portfolio';
+        platformTextures.about.src = 'https://placehold.co/140x60/FF6347/FFFFFF?text=About';
+        platformTextures.contact.src = 'https://placehold.co/140x60/32CD32/FFFFFF?text=Contact';
+        platformTextures.projects.src = 'https://placehold.co/140x60/FF1493/FFFFFF?text=Projects';
+        platformTextures.invisible.src = 'https://placehold.co/1x1/FFFFFF/FFFFFF?text=_';
+        platformTextures.portal.src = 'https://placehold.co/100x100/800080/FFFFFF?text=Portal';
+        platformTextures.stone.src = 'https://placehold.co/140x40/708090/FFFFFF?text=Stone';
+        platformTextures.grass.src = 'https://placehold.co/140x40/9ACD32/FFFFFF?text=Grass';
+
+        // World system
+        const worlds = {
+            main: {
+                name: "Main World",
+                backgroundLayers: [
+                    { src: 'https://placehold.co/800x600/87CEEB/FFFFFF?text=Sky', speedFactor: 0.2 },
+                    { src: 'https://placehold.co/800x600/F0F8FF/FFFFFF?text=Clouds', speedFactor: 0.4 },
+                    { src: 'https://placehold.co/800x600/4682B4/FFFFFF?text=Mountains', speedFactor: 0.6 },
+                    { src: 'https://placehold.co/800x600/228B22/FFFFFF?text=Ground', speedFactor: 0.8 }
+                ],
+                platforms: [
+                    { x: 0, y: 0, width: 40, height: 780, tex: 'invisible' },
+                    { x: 0, y: 601, width: 2800, height: 600, tex: 'invisible' },
+                    { x: 300, y: 400, width: 140, height: 40, tex: 'type1' },
+                    { x: 600, y: 380, width: 140, height: 60, tex: 'about' },
+                    { x: 900, y: 410, width: 140, height: 60, tex: 'projects', teleportTo: { x: 1200, y: 300 } },
+                    { x: 1200, y: 430, width: 140, height: 60, tex: 'contact' },
+                    { x: 800, y: 200, width: 300, height: 60, tex: 'portfolio' },
+                    { x: 1500, y: 400, width: 100, height: 100, tex: 'portal', portal: { world: 'forest', x: 200, y: 300 } }
+                ],
+                playerSpawn: { x: 200, y: 250 },
+                gravity: 0.2,
+                groundY: 400
+            },
+            
+            forest: {
+                name: "Forest World",
+                backgroundLayers: [
+                    { src: 'https://placehold.co/800x600/228B22/FFFFFF?text=Forest+Sky', speedFactor: 0.2 },
+                    { src: 'https://placehold.co/800x600/006400/FFFFFF?text=Trees+BG', speedFactor: 0.4 },
+                    { src: 'https://placehold.co/800x600/8FBC8F/FFFFFF?text=Trees+Mid', speedFactor: 0.6 },
+                    { src: 'https://placehold.co/800x600/654321/FFFFFF?text=Forest+Ground', speedFactor: 0.8 }
+                ],
+                platforms: [
+                    { x: 0, y: 0, width: 40, height: 780, tex: 'invisible' },
+                    { x: 0, y: 601, width: 2800, height: 600, tex: 'invisible' },
+                    { x: 300, y: 450, width: 140, height: 40, tex: 'grass' },
+                    { x: 600, y: 350, width: 140, height: 40, tex: 'grass' },
+                    { x: 900, y: 250, width: 140, height: 40, tex: 'grass' },
+                    { x: 1200, y: 400, width: 140, height: 40, tex: 'grass' },
+                    { x: 1500, y: 300, width: 100, height: 100, tex: 'portal', portal: { world: 'cave', x: 200, y: 300 } },
+                    { x: 100, y: 500, width: 100, height: 100, tex: 'portal', portal: { world: 'main', x: 1400, y: 300 } }
+                ],
+                playerSpawn: { x: 200, y: 300 },
+                gravity: 0.15,
+                groundY: 450
+            },
+            
+            cave: {
+                name: "Cave World",
+                backgroundLayers: [
+                    { src: 'https://placehold.co/800x600/2F2F2F/FFFFFF?text=Cave+Dark', speedFactor: 0.1 },
+                    { src: 'https://placehold.co/800x600/4A4A4A/FFFFFF?text=Stalactites', speedFactor: 0.3 },
+                    { src: 'https://placehold.co/800x600/696969/FFFFFF?text=Cave+Rocks', speedFactor: 0.5 },
+                    { src: 'https://placehold.co/800x600/8B4513/FFFFFF?text=Cave+Floor', speedFactor: 0.7 }
+                ],
+                platforms: [
+                    { x: 0, y: 0, width: 40, height: 780, tex: 'invisible' },
+                    { x: 0, y: 601, width: 2800, height: 600, tex: 'invisible' },
+                    { x: 300, y: 500, width: 200, height: 40, tex: 'stone' },
+                    { x: 600, y: 400, width: 140, height: 40, tex: 'stone' },
+                    { x: 900, y: 300, width: 140, height: 40, tex: 'stone' },
+                    { x: 1200, y: 200, width: 140, height: 40, tex: 'stone' },
+                    { x: 1500, y: 400, width: 100, height: 100, tex: 'portal', portal: { world: 'main', x: 200, y: 300 } },
+                    { x: 100, y: 500, width: 100, height: 100, tex: 'portal', portal: { world: 'forest', x: 1400, y: 200 } }
+                ],
+                playerSpawn: { x: 200, y: 300 },
+                gravity: 0.25,
+                groundY: 500
+            }
+        };
+
+        // Current world state
+        let currentWorld = 'main';
+        let currentPlatforms = [];
+        let currentBgLayers = [];
+
+        // Player sprite (using placeholder)
+        const spriteSheet = new Image();
+        spriteSheet.src = 'https://placehold.co/192x32/FF0000/FFFFFF?text=Player+Sprites';
+
+        // Player object
+        const player = {
+            x: 200,
+            y: 250,
+            width: 32,
+            height: 32,
+            vx: 0,
+            vy: 0,
+            speed: 2,
+            scale: 2,
+            jumping: false,
+            frameX: 0,
+            frameY: 0,
+            facingRight: true,
+            downer: false,
+            frameDelay: 15,
+            frameCount: 0,
+            currentFrameSet: 'idle',
+            onGround: false,
+            animations: {
+                idle: { y: 0, frames: 4 },
+                walk: { y: 0, frames: 6 },
+                run: { y: 0, frames: 6 },
+                jump: { y: 0, frames: 8 }
+            }
+        };
+
+        // Input handling
+        const keys = {};
+        document.addEventListener('keydown', (e) => keys[e.key] = true);
+        document.addEventListener('keyup', (e) => keys[e.key] = false);
+
+        // Load world function
+        function loadWorld(worldKey) {
+            const world = worlds[worldKey];
+            if (!world) {
+                console.error(`World "${worldKey}" not found!`);
+                return;
+            }
+            
+            currentWorld = worldKey;
+            gravity = world.gravity;
+            groundY = world.groundY;
+            
+            // Load platforms with scaling
+            currentPlatforms = world.platforms.map(platform => ({
+                ...platform,
+                x: platform.x / xfactor,
+                y: platform.y / yfactor,
+                stayTime: 0
+            }));
+            
+            // Load background layers
+            currentBgLayers = world.backgroundLayers.map(layer => ({
+                image: new Image(),
+                speedFactor: layer.speedFactor,
+                src: layer.src
+            }));
+            
+            // Load background images
+            currentBgLayers.forEach(layer => {
+                layer.image.src = layer.src;
+            });
+            
+            // Reset player position to spawn point
+            player.x = world.playerSpawn.x / xfactor;
+            player.y = world.playerSpawn.y / yfactor;
+            player.vx = 0;
+            player.vy = 0;
+            player.jumping = false;
+            
+            // Reset camera
+            cameraX = 0;
+            
+            console.log(`Loaded world: ${world.name}`);
+        }
+
+        // Check for portal interactions
+        function checkPortals() {
+            for (const platform of currentPlatforms) {
+                if (platform.portal && isColliding(player, platform)) {
+                    if (keys[' '] || keys['Space'] || keys['E'] || keys['e']) {
+                        loadWorld(platform.portal.world);
+                        player.x = platform.portal.x / xfactor;
+                        player.y = platform.portal.y / yfactor;
+                        return;
+                    } else {
+                        drawPortalHint(platform);
+                    }
+                }
+            }
+        }
+
+        // Draw portal hint
+        function drawPortalHint(platform) {
+            const hintText = "Press SPACE or E to enter portal";
+            const textX = platform.x - cameraX + platform.width / 2;
+            const textY = platform.y - 20;
+            
+            ctx.save();
+            ctx.fillStyle = 'rgba(0, 0, 0, 0.8)';
+            ctx.font = '16px Arial';
+            ctx.textAlign = 'center';
+            
+            const textWidth = ctx.measureText(hintText).width;
+            ctx.fillRect(textX - textWidth/2 - 10, textY - 25, textWidth + 20, 30);
+            
+            ctx.fillStyle = 'white';
+            ctx.fillText(hintText, textX, textY - 5);
+            ctx.restore();
+        }
+
+        function updatePlayer() {
+            // Movement
+            const isRight = keys['d'] || keys['D'] || keys['ArrowRight'];
+            const isLeft = keys['a'] || keys['A'] || keys['ArrowLeft'];
+            const isShift = keys['Shift'];
+            const isDown = keys['s'] || keys['S'] || keys['ArrowDown'];
+
+            player.speed = isShift ? 3 : 2;
+            player.downer = false;
+
+            if (isRight) {
+                player.vx = player.speed;
+                player.facingRight = true;
+                changeAnimation(isShift ? 'run' : 'walk');
+            } else if (isLeft) {
+                player.facingRight = false;
+                player.vx = -player.speed;
+                changeAnimation(isShift ? 'run' : 'walk');
+            } else {
+                player.vx = 0;
+                changeAnimation('idle');
+            }
+
+            if ((keys[' '] || keys['Space'] || keys['W'] || keys['w'] || keys['ArrowUp']) && !player.jumping) {
+                player.vy = -12;
+                player.jumping = true;
+                changeAnimation('jump');
+            }
+            
+            if (isDown) {
+                player.downer = true;
+            }
+
+            // Apply gravity and movement
+            let onGround = false;
+            player.vy += gravity;
+            player.y += player.vy;
+            player.height = 32 * player.scale;
+            player.width = 32 * player.scale;
+
+            // Vertical Collision
+            for (const platform of currentPlatforms) {
+                const isOverlappingX = player.x + player.width > platform.x &&
+                                       player.x < platform.x + platform.width;
+
+                if (isOverlappingX) {
+                    const isFalling = player.vy >= 0;
+                    const wasAbove = player.y + player.height - player.vy <= platform.y;
+                    const isNowTouching = player.y + player.height > platform.y &&
+                                          player.y < platform.y + platform.height;
+
+                    if (isFalling && wasAbove && isNowTouching) {
+                        player.y = platform.y - player.height;
+                        player.vy = 0;
+                        player.jumping = false;
+                        onGround = true;
+
+                        // Teleport logic
+                        if (platform.teleportTo && player.downer) {
+                            platform.stayTime = (platform.stayTime || 0) + 1;
+                            if (platform.stayTime >= 60 * 3) { // 3 seconds
+                                player.x = platform.teleportTo.x / xfactor;
+                                player.y = platform.teleportTo.y / yfactor;
+                                player.vx = 0;
+                                player.vy = 0;
+                                platform.stayTime = 0;
+                                break;
+                            }
+                        }
+                    } else if (platform.teleportTo) {
+                        platform.stayTime = 0;
+                    }
+
+                    // Head collision
+                    const isJumpingUp = player.vy < 0;
+                    const wasBelow = player.y - player.vy >= platform.y + platform.height;
+                    const isTouchingBottom = player.y < platform.y + platform.height &&
+                                             player.y + player.height > platform.y;
+
+                    if (isJumpingUp && wasBelow && isTouchingBottom) {
+                        player.y = platform.y + platform.height;
+                        player.vy = 0;
+                    }
+                } else if (platform.teleportTo) {
+                    platform.stayTime = 0;
+                }
+            }
+
+            // Apply horizontal velocity
+            player.x += player.vx;
+
+            // Horizontal Collision
+            for (const platform of currentPlatforms) {
+                const isOverlappingY = player.y + player.height > platform.y &&
+                                       player.y < platform.y + platform.height;
+
+                if (isOverlappingY) {
+                    // Hit from left
+                    const isMovingRight = player.vx > 0;
+                    const wasLeft = player.x + player.width - player.vx <= platform.x;
+                    const isTouchingLeft = player.x + player.width > platform.x &&
+                                           player.x < platform.x + platform.width;
+
+                    if (isMovingRight && wasLeft && isTouchingLeft) {
+                        player.x = platform.x - player.width;
+                        player.vx = 0;
+                    }
+
+                    // Hit from right
+                    const isMovingLeft = player.vx < 0;
+                    const wasRight = player.x - player.vx >= platform.x + platform.width;
+                    const isTouchingRight = player.x < platform.x + platform.width &&
+                                            player.x + player.width > platform.x;
+
+                    if (isMovingLeft && wasRight && isTouchingRight) {
+                        player.x = platform.x + platform.width;
+                        player.vx = 0;
+                    }
+                }
+            }
+
+            // Check portals
+            checkPortals();
+
+            // Camera follow
+            if (player.x > screenCenterX) {
+                cameraX = player.x - screenCenterX;
+            } else {
+                cameraX = 0;
+            }
+
+            // Ground fallback
+            if (player.y > canvas.height - player.height) {
+                player.y = canvas.height - player.height;
+                player.vy = 0;
+                player.jumping = false;
+                onGround = true;
+            }
+
+            player.onGround = onGround;
+        }
+
+        function changeAnimation(name) {
+            if (player.currentFrameSet !== name) {
+                player.currentFrameSet = name;
+                player.frameX = 0;
+                player.frameCount = 0;
+            }
+        }
+
+        function isColliding(a, b) {
+            return (
+                a.x < b.x + b.width &&
+                a.x + a.width > b.x &&
+                a.y < b.y + b.height &&
+                a.y + a.height > b.y
+            );
+        }
+
+        function drawParallaxBackground() {
+            for (const layer of currentBgLayers) {
+                const offsetX = -cameraX * layer.speedFactor;
+                const img = layer.image;
+                
+                if (!img.complete) continue;
+                
+                const imgWidth = img.width || canvas.width;
+                const repeatCount = Math.ceil(canvas.width / imgWidth) + 2;
+
+                for (let i = -1; i < repeatCount; i++) {
+                    const drawX = (offsetX % imgWidth) + i * imgWidth;
+                    ctx.drawImage(img, drawX, 0, imgWidth, canvas.height);
+                }
+            }
+        }
+
+        function draw() {
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+            // Draw parallax background
+            drawParallaxBackground();
+            
+            // Draw platforms
+            for (const p of currentPlatforms) {
+                if (p.tex === 'invisible') continue; 
+                const textureToDraw = platformTextures[p.tex] || platformTextures.default;
+                ctx.drawImage(textureToDraw, p.x - cameraX, p.y, p.width, p.height);
+            }
+            
+            // Draw player
+            const drawX = (player.x > screenCenterX ? screenCenterX : player.x - cameraX);
+            const drawY = player.y;
+            const drawWidth = player.width;
+            const drawHeight = player.height;
+            
+            ctx.save();
+            if (!player.facingRight) {
+                ctx.translate(drawX + drawWidth / 2, 0);
+                ctx.scale(-1, 1);
+                ctx.translate(-drawWidth / 2, 0);
+            }
+            
+            // Simple colored rectangle for player
+            ctx.fillStyle = player.jumping ? '#FF6B6B' : (player.vx !== 0 ? '#4ECDC4' : '#45B7D1');
+            ctx.fillRect(player.facingRight ? drawX : drawX, drawY, drawWidth, drawHeight);
+            
+            // Player face
+            ctx.fillStyle = 'white';
+            ctx.fillRect((player.facingRight ? drawX : drawX) + 8, drawY + 8, 4, 4);
+            ctx.fillRect((player.facingRight ? drawX : drawX) + 20, drawY + 8, 4, 4);
+            
+            ctx.restore();
+            
+            drawTeleportProgressBars();
+            drawWorldInfo();
+        }
+
+        function drawWorldInfo() {
+            const worldName = worlds[currentWorld].name;
+            ctx.save();
+            ctx.fillStyle = 'rgba(0, 0, 0, 0.8)';
+            ctx.fillRect(10, 10, 200, 50);
+            
+            ctx.fillStyle = 'white';
+            ctx.font = '18px Arial';
+            ctx.fillText(worldName, 20, 35);
+            
+            ctx.font = '12px Arial';
+            ctx.fillText(`Gravity: ${gravity}`, 20, 50);
+            ctx.restore();
+        }
+
+        function drawTeleportProgressBars() {
+            for (const platform of currentPlatforms) {
+                if (platform.teleportTo && platform.stayTime > 0) {
+                    const barWidth = platform.width;
+                    const barHeight = 6;
+                    const progress = Math.min(platform.stayTime / (60 * 3), 1);
+                    
+                    const x = platform.x - cameraX;
+                    const y = platform.y - 12;
+
+                    ctx.fillStyle = 'rgba(255,255,255,0.3)';
+                    ctx.fillRect(x, y, barWidth, barHeight);
+
+                    ctx.fillStyle = 'limegreen';
+                    ctx.fillRect(x, y, barWidth * progress, barHeight);
+
+                    ctx.strokeStyle = 'black';
+                    ctx.strokeRect(x, y, barWidth, barHeight);
+                }
+            }
+        }
+
+        function animateSprite() {
+            player.frameCount++;
+            const anim = player.animations[player.currentFrameSet];
+            if (player.frameCount >= player.frameDelay) {
+                player.frameX = (player.frameX + 1) % anim.frames;
+                player.frameCount = 0;
+            }
+        }
+
+        function gameLoop() {
+            updatePlayer();
+            draw();
+            animateSprite();
+            requestAnimationFrame(gameLoop);
+        }
+
+        // Initialize game
+        function initializeGame() {
+            loadWorld('main');
+            gameLoop();
+        }
+
+        // Wait for page to load then start game
+        window.addEventListener('load', initializeGame);
+    </script>
+</body>
+</html>
